@@ -1,6 +1,8 @@
 <?php
 
-
+/**
+ * Page callback: admin settings form.
+ */
 function path_analytics_admin_settings_form() {
   $form['settings'] = array(
     '#type' => 'fieldset',
@@ -31,7 +33,9 @@ function path_analytics_admin_settings_form() {
   return system_settings_form($form);
 }
 
-
+/**
+ * Form submission handler for path_analytics_admin_settings_form().
+ */
 function path_analytics_admin_settings_form_submit($form, &$form_state) {
   // Save form settings.
   system_settings_form_submit($form, $form_state);

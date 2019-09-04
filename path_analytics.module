@@ -1,14 +1,9 @@
 <?php
 
-//module_load_include('inc', 'google_analytics_reports', 'google_analytics_reports.pages');
-
 /**
  * Implementation of hook_menu().
  *
  * Add menu item for group analytics report.
- *
- * @return
- *   Returns new menu items.
  */
 function path_analytics_menu() {
   global $user;
@@ -21,11 +16,11 @@ function path_analytics_menu() {
     $item_type = MENU_CALLBACK;
     $item_path = 'path_analytics/%';
   }
+
   if (module_exists('google_analytics_reports')) {
     $items[$item_path] = array(
       'title' => 'Google Analytics Summary',
       'description' => "View a traffic report for your group.",
-      //'page callback' => 'path_analytics_google_analytics_reports_summary_page',
       'page callback' => 'drupal_get_form',
       'page arguments' => array('path_analytics_google_analytics_date_form', 1),
       'access callback' => 'path_analytics_access_report',
@@ -33,6 +28,7 @@ function path_analytics_menu() {
       'type' => $item_type,
     );
   }
+
   $items['admin/config/system/path_analytics'] = array(
     'title' => 'Path Analytics Reports',
     'description' => 'Configure path-based analytics reports.',
@@ -47,9 +43,17 @@ function path_analytics_menu() {
 
 
 /**
- * Page callback for admin/reports/google-analytics.
+ * Page callback for admin/reports/google-analytics: displays a list of statistics.
  *
- * @return An HTML summary of the site-wide statistics.
+ * @param int $main_nid
+ *   Node id for initial/main page with the base path.
+ * @param string $start
+ *   Start date for Google Analytics report.
+ * @param string $end
+ *   End date for Google Analytics report.
+ *
+ * @return string
+ *   Themed summary of the site-wide statistics.
  */
 function path_analytics_google_analytics_reports_summary_page($main_nid, $start = '-31 days', $end = '-1 day') {
   if (!variable_get('google_analytics_reports_api_oauth_token', FALSE)) {
@@ -66,14 +70,9 @@ function path_analytics_google_analytics_reports_summary_page($main_nid, $start 
     'referrals' => _path_analytics_google_analytics_reports_top_referrals($path, $start, $end),
     'events' => _path_analytics_google_analytics_reports_events($path, $start, $end),
     'devices' => _path_analytics_google_analytics_reports_devices($path, $start, $end),
-//    'searches' => _path_analytics_google_analytics_reports_top_searches($path, $start, $end),
     'countries' => _path_analytics_google_analytics_reports_countries($path, $start, $end),
-//    'countries_list' => _path_analytics_google_analytics_reports_countries_list($path, $start, $end),
     'source_types' => _path_analytics_google_analytics_reports_source_types($path, $main_nid, $start, $end),
     'keywords' => _path_analytics_reports_top_keywords($path, $start, $end),
-//    'keywords' => _google_analytics_reports_top_keywords($path),
-//    'filters' => _google_analytics_reports_path_filter($path),
-//    'filters' => 'ga:pagePath=~^' . preg_quote($path) . '.*',
     'filters' => 'ga:pagePath=~^/' . preg_quote($path),
     'start_date' => $start,
     'end_date' => $end,
@@ -93,13 +92,20 @@ function path_analytics_google_analytics_reports_summary_page($main_nid, $start 
 
   $output .= theme('path_analytics_reports_summary', $summary);
 
-//  return theme('google_analytics_reports_summary', $summary);
   return $output;
 }
 
 
 /**
- * Form definition for report datepicker.
+ * Page callback form definition for report datepicker.
+ *
+ * @param $main_nid
+ *   Node id for initial/main page with the base path.
+ * @param $form_state
+ *   Form's form_state.
+ * 
+ * @return array
+ *   $form ready for rendering.
  */
 function path_analytics_google_analytics_date_form($main_nid, &$form_state) {
   $form = array();
@@ -128,7 +134,6 @@ function path_analytics_google_analytics_date_form($main_nid, &$form_state) {
 
   $form['submit'] = array(
     '#type' => 'submit',
-    //'#weight' => 50,
     '#attributes' => array('class' => array('ogt-analytics-submit')),
     '#ajax' => array(
       'callback' => 'path_analytics_google_analytics_date_form_submit',
@@ -143,6 +148,7 @@ function path_analytics_google_analytics_date_form($main_nid, &$form_state) {
   } else {
     $report = path_analytics_google_analytics_reports_summary_page($main_nid, $start = '-31 days', $end = '-1 day');
   }
+
   $form['report'] = array(
     '#type' => 'markup',
     '#prefix' => '<div id = "report">',
@@ -156,6 +162,16 @@ function path_analytics_google_analytics_date_form($main_nid, &$form_state) {
 
 /**
  * Renders an img element with a chart of the number of visits over the past 30 days.
+ *
+ * @param int $path
+ *   Initial base path.
+ * @param string $start
+ *   Start date for Google Analytics report.
+ * @param string $end
+ *   End date for Google Analytics report.
+ *
+ * @return
+ *   Themed output.
  */
 function _path_analytics_google_analytics_reports_visits($path, $start = '-31 days', $end = '-1 day') {
   $params = array(
@@ -164,7 +180,6 @@ function _path_analytics_google_analytics_reports_visits($path, $start = '-31 da
     'sort_metric' => array('ga:date'),
     'start_date' => strtotime($start),
     'end_date' => strtotime($end),
-//    'filters' => _google_analytics_reports_path_filter($path),
     'filters' => 'ga:pagePath=~^/' . preg_quote($path),
   );
   $feed = google_analytics_reports_api_report_data($params);
@@ -187,11 +202,6 @@ function _path_analytics_google_analytics_reports_visits($path, $start = '-31 da
   foreach ($feed->results->rows as $row) {
     $data[$row['date']] = $row['sessions'];
     $max_visits = max($row['sessions'], $max_visits);
-/* Not using labels are data point markers for now
-    $opt = array('#opt_which_points' => -1);
-    $markers[] = array_merge(chart_shape_marker(0, $row['visits'], 's', 10, '6896C8'), $opt);
-//    $markers[] = chart_shape_marker(0, $row['visits'], 's', 10, 'ff0000');
-*/
     $data_point_count++;
     if (fmod($row['date'], $mod) == 0 && ($data_point_count === 1 || $data_point_count % $multiples_of == 0)) {
       if (strlen($row['date']) === 8) { // This is a date in the yyyymmdd format
@@ -202,7 +212,6 @@ function _path_analytics_google_analytics_reports_visits($path, $start = '-31 da
       }
       $lables[CHART_AXIS_X_BOTTOM][0][] = chart_mixed_axis_label(t(' '));
       $lables[CHART_AXIS_X_BOTTOM][1][] = chart_mixed_axis_label($display_date);
-//    $lables[CHART_AXIS_Y_LEFT][0][] = chart_mixed_axis_label($row['visits'], $i * 10);
     }
   }
   $lables[CHART_AXIS_Y_LEFT][0][] = chart_mixed_axis_label(0);
@@ -214,18 +223,12 @@ function _path_analytics_google_analytics_reports_visits($path, $start = '-31 da
   $chart = array(
     '#chart_id' => 'visits_large_30d',
     '#data' => $data,
-    //'#title' => 'Visits!',
     '#type' => CHART_TYPE_LINE . ':nda',
     '#size' => chart_size(1000, 120),
-/* Not using labels are data point markers for now
-    '#shape_markers' => $markers,
-//    '#labels' => $data,
-*/
     '#mixed_axis_labels' => $lables,
     '#adjust_resolution' => TRUE,
     '#data_colors' => array('AAAAAA'),
     '#chart_fill' => chart_fill('bg', '00000000'),
-    //'#shape_markers' => array(chart_shape_marker(0, 0, 'B', 0, $color = 'EEEEEE')),
     '#line_styles' => array(chart_line_style(2, 10, 0)),
   );
 
@@ -234,7 +237,6 @@ function _path_analytics_google_analytics_reports_visits($path, $start = '-31 da
   $last_day = end($feed->results->rows);
   $date_span = $last_day['date'] - $first_day['date'];
   if ($date_span > 10000) {
-//    unset($chart['#mixed_axis_labels'][CHART_AXIS_X_BOTTOM]);
     $weeks = array_chunk($chart['#data'], 7, TRUE);
     $chart['#data'] = NULL;
     foreach ($weeks as $week) {
@@ -258,14 +260,22 @@ function _path_analytics_google_analytics_reports_visits($path, $start = '-31 da
   $chart['#attributes'] = array('title' => $title, 'style' => 'height: ' . $chart['#size']['#height'] . 'px; width:100%;');
   $output = theme('chart', array('chart' => $chart));
 
-//  $output = '';
-//  $output .= chart_render($chart, array('title' => $title, 'style' => 'height:' . $chart['#size']['#height'] . 'px; width:100%'));
   return $output;
 }
 
 
 /**
  * Retrieves usage data.
+ *
+ * @param int $path
+ *   Initial base path.
+ * @param string $start
+ *   Start date for Google Analytics report.
+ * @param string $end
+ *   End date for Google Analytics report.
+ *
+ * @return
+ *   Themed output.
  */
 function _path_analytics_google_analytics_reports_usage($path, $start = '-31 days', $end = '-1 day') {
   // Site usage
@@ -284,7 +294,6 @@ function _path_analytics_google_analytics_reports_usage($path, $start = '-31 day
     ),
     'start_date' => strtotime($start),
     'end_date' => strtotime($end),
-//    'filters' => _google_analytics_reports_path_filter($path),
     'filters' => 'ga:pagePath=~^/' . preg_quote($path),
   );
   $feed = google_analytics_reports_api_report_data($params);
@@ -297,6 +306,16 @@ function _path_analytics_google_analytics_reports_usage($path, $start = '-31 day
 
 /**
  * Retrieves events data.
+ *
+ * @param int $path
+ *   Initial base path.
+ * @param string $start
+ *   Start date for Google Analytics report.
+ * @param string $end
+ *   End date for Google Analytics report.
+ *
+ * @return
+ *   Themed output.
  */
 function _path_analytics_google_analytics_reports_events($path, $start = '-31 days', $end = '-1 day') {
   $params = array(
@@ -318,6 +337,16 @@ function _path_analytics_google_analytics_reports_events($path, $start = '-31 da
 
 /**
  * Retrieves device data for pie chart.
+ *
+ * @param int $path
+ *   Initial base path.
+ * @param string $start
+ *   Start date for Google Analytics report.
+ * @param string $end
+ *   End date for Google Analytics report.
+ *
+ * @return
+ *   Themed output.
  */
 function _path_analytics_google_analytics_reports_devices($path, $start = '-31 days', $end = '-1 day') {
   // Site visitors by country
@@ -327,7 +356,6 @@ function _path_analytics_google_analytics_reports_devices($path, $start = '-31 d
     'sort_metric' => array('-ga:sessions'),
     'start_date' => strtotime($start),
     'end_date' => strtotime($end),
-//    'filters' => _google_analytics_reports_path_filter($path),
     'filters' => 'ga:pagePath=~^/' . preg_quote($path),
   );
   $feed = google_analytics_reports_api_report_data($params);
@@ -374,6 +402,16 @@ function _path_analytics_google_analytics_reports_devices($path, $start = '-31 d
 
 /**
  * Retrieves country data for pie chart.
+ *
+ * @param int $path
+ *   Initial base path.
+ * @param string $start
+ *   Start date for Google Analytics report.
+ * @param string $end
+ *   End date for Google Analytics report.
+ *
+ * @return
+ *   Themed output.
  */
 function _path_analytics_google_analytics_reports_countries($path, $start = '-31 days', $end = '-1 day') {
   // Site visitors by country
@@ -383,7 +421,6 @@ function _path_analytics_google_analytics_reports_countries($path, $start = '-31
     'sort_metric' => array('-ga:sessions'),
     'start_date' => strtotime($start),
     'end_date' => strtotime($end),
-//    'filters' => _google_analytics_reports_path_filter($path),
     'filters' => 'ga:pagePath=~^/' . preg_quote($path),
   );
   $feed = google_analytics_reports_api_report_data($params);
@@ -391,7 +428,6 @@ function _path_analytics_google_analytics_reports_countries($path, $start = '-31
     return FALSE;
   }
 
-//  $results = (isset($feed->results->rows)) ? $feed->results->rows : $feed->results;
   $data = _path_analytics_countries();
   foreach ($feed->results->rows as $row) {
     if (isset($row['country'])) { 
@@ -414,25 +450,17 @@ function _path_analytics_google_analytics_reports_countries($path, $start = '-31
   $chart = array(
     '#chart_id' => 'countries_large_30d',
     '#data' => $top_data,
-//    '#type' => CHART_TYPE_BAR_V_GROUPED,
     '#type' => CHART_TYPE_PIE,
     '#size' => chart_size(800, 300),
     '#grid_lines' => chart_grid_lines(30, 15),
-//    '#bar_size' => chart_bar_size(15, 5),
     '#legends' => array_keys($top_data),
     '#adjust_resolution' => TRUE,
-    //'#data_colors' => array('3366CC', '990099', '109618', 'FF9900', 'DC3912', '00ff00', '009900', '003300', 'ff0000', '990000', '330000', '0000ff', '000099', '000033'),
-    //'#data_colors' => array('FF9900', 'FF0000', 'DC3912', '990099', '990000', '3366CC', '109618', '00ff00', '009900', '003300', '0000ff', '000099'),
     '#data_colors' => array('8ae234', '73d216', '4e9a06', '729fcf', '3465a4', '204a87', 'ad7fa8', '75507b', '5c3566', 'ef2929', 'cc0000', 'a40000', 'fce94f', 'edd400', 'c4a000', 'fcaf3e', 'f57900', 'ce5c00', 'e9b96e', 'c17d11', '8f5902'),
-    //'#data_colors' => array('00ff00', '009900', '003300', 'ff0000', '990000', '330000', '0000ff', '000099', '000033'),
     '#chart_fill' => chart_fill('bg', '00000000'),
     '#shape_markers' => array(chart_shape_marker(0, 0, 'B', 0, $color = 'EEEEEE')),
     '#line_styles' => array(chart_line_style(2, 10, 0)),
     '#max_results' => 10,
   );
-//  foreach ($data as $k => $v) {
-//    $chart['#data_colors'][] = chart_unique_color($k);
-//  }
   $last_day = end($feed->results->rows);
   $chart['#attributes'] = array('title' => $title, 'style' => 'height:' . $chart['#size']['#height'] . 'px; width:80%');
   $output = theme('chart', array('chart' => $chart));
@@ -443,6 +471,16 @@ function _path_analytics_google_analytics_reports_countries($path, $start = '-31
 
 /**
  * Retrieves country data for full list.
+ *
+ * @param int $path
+ *   Initial base path.
+ * @param string $start
+ *   Start date for Google Analytics report.
+ * @param string $end
+ *   End date for Google Analytics report.
+ *
+ * @return
+ *   Themed output.
  */
 function _path_analytics_google_analytics_reports_countries_list($path, $start = '-31 days', $end = '-1 day') {
   // Site visitors by country
@@ -452,7 +490,6 @@ function _path_analytics_google_analytics_reports_countries_list($path, $start =
     'sort_metric' => array('-ga:sessions'),
     'start_date' => strtotime($start),
     'end_date' => strtotime($end),
-//    'filters' => _google_analytics_reports_path_filter($path),
     'filters' => 'ga:pagePath=~^/' . preg_quote($path),
   );
   $feed = google_analytics_reports_api_report_data($params);
@@ -472,6 +509,16 @@ function _path_analytics_google_analytics_reports_countries_list($path, $start =
 
 /**
  * Retrieves top pages.
+ *
+ * @param int $path
+ *   Initial base path.
+ * @param string $start
+ *   Start date for Google Analytics report.
+ * @param string $end
+ *   End date for Google Analytics report.
+ *
+ * @return
+ *   Themed output.
  */
 function _path_analytics_google_analytics_reports_top_pages($path, $start = '-31 days', $end = '-1 day') {
   $params = array(
@@ -482,7 +529,6 @@ function _path_analytics_google_analytics_reports_top_pages($path, $start = '-31
     'end_date' => strtotime($end),
     'sort' => '-ga:pageviews',
     'max_results' => 10,
-//    'filters' => _google_analytics_reports_path_filter($path),
     'filters' => 'ga:pagePath=~^/' . preg_quote($path),
   );
   $feed = google_analytics_reports_api_report_data($params);
@@ -502,6 +548,16 @@ function _path_analytics_google_analytics_reports_top_pages($path, $start = '-31
 
 /**
  * Retrieves top referrals.
+ *
+ * @param int $path
+ *   Initial base path.
+ * @param string $start
+ *   Start date for Google Analytics report.
+ * @param string $end
+ *   End date for Google Analytics report.
+ *
+ * @return
+ *   Themed output.
  */
 function _path_analytics_google_analytics_reports_top_referrals($path, $start = '-31 days', $end = '-1 day') {
   $params = array(
@@ -514,9 +570,6 @@ function _path_analytics_google_analytics_reports_top_referrals($path, $start = 
     'max_results' => 10,
     'filters' => 'ga:pagePath=~^/' . preg_quote($path),
   );
-  if ($path) {
-//    $params['filters'] .= ';' . _google_analytics_reports_path_filter($path);
-  }
   $feed = google_analytics_reports_api_report_data($params);
   if ($feed->error) {
     return FALSE;
@@ -526,6 +579,16 @@ function _path_analytics_google_analytics_reports_top_referrals($path, $start = 
 
 /**
  * Retrieves top searches.
+ *
+ * @param int $path
+ *   Initial base path.
+ * @param string $start
+ *   Start date for Google Analytics report.
+ * @param string $end
+ *   End date for Google Analytics report.
+ *
+ * @return
+ *   Themed output.
  */
 function _path_analytics_google_analytics_reports_top_searches($path = '', $start = '-31 days', $end = '-1 day') {
   $params = array(
@@ -534,13 +597,9 @@ function _path_analytics_google_analytics_reports_top_searches($path = '', $star
     'sort_metric' => array('-ga:sessions'),
     'start_date' => strtotime($start),
     'end_date' => strtotime($end),
-//    'filters' => 'ga:keyword!=(not set)',
     'max_results' => 10,
     'filters' => 'ga:pagePath=~^/' . preg_quote($path),
   );
-  if ($path) {
-//    $params['filters'] .= ';' . 'ga:pagePath=@' . preg_quote($path);
-  }
   $feed = google_analytics_reports_api_report_data($params);
   if ($feed->error) {
     return FALSE;
@@ -556,6 +615,16 @@ function _path_analytics_google_analytics_reports_top_searches($path = '', $star
 
 /**
  * Retrieves top keywords.
+ *
+ * @param int $path
+ *   Initial base path.
+ * @param string $start
+ *   Start date for Google Analytics report.
+ * @param string $end
+ *   End date for Google Analytics report.
+ *
+ * @return
+ *   Themed output.
  */
 function _path_analytics_reports_top_keywords($path = '', $start = '-31 days', $end = '-1 day') {
   $params = array(
@@ -568,29 +637,26 @@ function _path_analytics_reports_top_keywords($path = '', $start = '-31 days', $
     'filters' => 'ga:pagePath=~^/' . preg_quote($path),
     'max_results' => 10,
   );
-  if ($path) {
-//    $params['filters'] .= ';' . _google_analytics_reports_path_filter($path);
-  }
   $feed = google_analytics_reports_api_report_data($params);
   if ($feed->error) {
     return FALSE;
   }
   return $feed->results->rows;
-/*  $rows = array();
-  foreach ($feed->results as $result) {
-    foreach ($result as $id => $row) {
-      if (is_array($row) && is_int($id)) {
-    $rows[] = array(t($row['keyword']), $row['visits']);
-      }
-    }
-  }
-//dpr($rows);
-  $header = array('Keyword', 'Visits');
-  return theme('table', $header, $rows);
-*/
 }
 
-
+/**
+ * Retrieves Google Analytics source types.
+ *
+ * @param int $path
+ *   Initial base path.
+ * @param string $start
+ *   Start date for Google Analytics report.
+ * @param string $end
+ *   End date for Google Analytics report.
+ *
+ * @return
+ *   Themed output.
+ */
 function _path_analytics_google_analytics_reports_source_types($path, $main_nid, $start = '-31 days', $end = '-1 day') {
   $params = array(
     'metrics' => array('ga:sessions'),
@@ -607,7 +673,6 @@ function _path_analytics_google_analytics_reports_source_types($path, $main_nid,
     return FALSE;
   }
   $data = array('organic' => 0, 'direct' => 0, 'referral' => 0);
-//  $results = (isset($feed->results->rows)) ? $feed->results->rows : $feed->results;
   foreach ($feed->results->rows as $row) {
     if ($row['medium'] == '(none)') {
       $row['medium'] = 'direct';
@@ -629,7 +694,6 @@ function _path_analytics_google_analytics_reports_source_types($path, $main_nid,
     '#grid_lines' => chart_grid_lines(30, 15),
     '#legends' => array_keys($data),
     '#adjust_resolution' => TRUE,
-//    '#data_colors' => array('00ff00', '009900', '003300', 'ff0000', '990000', '330000', '0000ff', '000099', '000033'),
     '#data_colors' => array('3366CC', '990099', '109618', 'FF9900', 'DC3912'),
     '#chart_fill' => chart_fill('bg', '00000000'),
     '#shape_markers' => array(chart_shape_marker(0, 0, 'B', 0, $color = 'EEEEEE')),
@@ -643,9 +707,12 @@ function _path_analytics_google_analytics_reports_source_types($path, $main_nid,
   return $output;
 }
 
+/**
+ * Form submission handler for path_analytics_google_analytics_date_form().
+ *
+ * @see path_analytics_google_analytics_date_form()
+ */
 function path_analytics_google_analytics_date_form_submit(&$form, $form_state) {
-//  dpr($form_state);
-//  exit();
   $start = '-' . path_analytics_google_analytics_time_ago($form_state['values']['start_date']);
   $end = '-' . path_analytics_google_analytics_time_ago($form_state['values']['end_date']);
   $main_nid = $form_state['build_info']['args'][0];
@@ -658,19 +725,39 @@ function path_analytics_google_analytics_date_form_submit(&$form, $form_state) {
   drupal_goto('node/196/reports/google-analytics/' . $start . '/' . $end);
 }
 
+/**
+ * Formats time ago string to be passed to Google Analytics.
+ *
+ * @param string $date
+ *   Date string.
+ * @param int $time
+ *   Time in hours/minutes.
+ *
+ * @return string
+ *   Formatted timepast string.
+ */
 function path_analytics_google_analytics_time_ago($date, $time = 0) {
-  $days = abs(ceil((strtotime($date)-strtotime("now"))/86400));
-  if ($days > 0)  $timepast = $days." days";
-  if ($days == 1)  $timepast = $days." day";
-  $hours = abs(ceil((strtotime($time)-strtotime("now"))/3600));
-  if ($days == 0) $timepast = "about ".$hours." hours";
-  if ($hours == 1) $timepast = "about ".$hours." hour";
-  $minutes = abs(ceil((strtotime($time)-strtotime("now"))/60))-($hours*60);
-  if ($hours == 0) $timepast = $minutes." minutes";
-  if ($minutes == 1) $timepast = $minutes." minute";
+  $days = abs(ceil((strtotime($date) - strtotime("now")) / 86400));
+  if ($days > 0)  $timepast = $days . " days";
+  if ($days == 1)  $timepast = $days . " day";
+  $hours = abs(ceil((strtotime($time) - strtotime("now")) / 3600));
+  if ($days == 0) $timepast = "about " . $hours . " hours";
+  if ($hours == 1) $timepast = "about " . $hours . " hour";
+  $minutes = abs(ceil((strtotime($time) - strtotime("now")) / 60)) - ($hours * 60);
+  if ($hours == 0) $timepast = $minutes . " minutes";
+  if ($minutes == 1) $timepast = $minutes . " minute";
   return $timepast;
 }
 
+/**
+ * Page access callback for Google Analytics summary.
+ *
+ * @param int $nid
+ *   Node id for base path for report.
+ *
+ * @return boolean
+ *   Either TRUE or FALSE depending on whether the user is allowed access.
+ */
 function path_analytics_access_report($nid) {
   global $user;
 
@@ -681,24 +768,11 @@ function path_analytics_access_report($nid) {
   $entity = entity_object_load($nid, $entity_type);
   list(, , $bundle) = entity_extract_ids($entity->type, $entity);
 
-  // If this is being used within OG, make sure we display the link only on group nodes
-/*
-  if (module_exists('og')) {
-    $is_group_content = og_is_group_content_type($entity_type, $bundle);
-    $is_group = og_is_group_type($entity_type, $bundle);
-    if ($is_group || $is_group_content) {
-      if (!$is_group) {
-        return FALSE;
-      }
-    }
-  } else {
-*/
-    // Check for node types configured to be initial path start points for the report
-    $allowed_types = variable_get('path_analytics_nodetypes', array());
-    if (is_array($allowed_types) && (!in_array($bundle, $allowed_types) || $allowed_types[$bundle] === 0)) {
-      return FALSE;
-    }
-//  }
+  // Check for node types configured to be initial path start points for the report
+  $allowed_types = variable_get('path_analytics_nodetypes', array());
+  if (is_array($allowed_types) && (!in_array($bundle, $allowed_types) || $allowed_types[$bundle] === 0)) {
+    return FALSE;
+  }
 
   if (user_access('access google analytics reports', $user)) {
     return TRUE;
@@ -706,17 +780,21 @@ function path_analytics_access_report($nid) {
   return FALSE;
 }
 
-
+/**
+ * Implements hook_theme().
+ */
 function path_analytics_theme() {
   return array(
     'path_analytics_reports_summary' => array(
       'variables' => array('summary' => NULL),
       'template' => 'theme/path_analytics_reports_summary',
-//      'file' => 'google_analytics_reports.theme.inc',
     ),
   );
 }
 
+/**
+ * Implements template_preprocess_path_analytics_reports_summary().
+ */
 function template_preprocess_path_analytics_reports_summary(&$vars) {
   $vars = array_merge($vars, $vars['usage']);
   $vars['timespan'] = ($vars['start_date'] != -31) ? t("between {$vars['start_date']} and {$vars['end_date']}") : t('Over the Past 30 Days');
@@ -799,34 +877,18 @@ function template_preprocess_path_analytics_reports_summary(&$vars) {
   $sources_text = '<div class = "legend">Source types refers to whether the referral is from an unpaid search (<b>organic</b>), a link from another site (<b>referral</b>), a cost per click / paid seach campaign (<b>ccp</b>), or a <b>direct</b> visit (visitor typed your URL directly into a browser or had your site bookmarked).</div>';
   $vars['source_types_legend'] = theme('ctools_collapsible', array('handle' => 'View explanation', 'content' => $sources_text, 'collapsed' => TRUE));
 }
-/*
-function gen_cumulative_table($table = 'node', $id = 'nid', $qfragment = '', $points = 0, $timestamp = 0) {
-  $data = array();
-  $nbars = 15;
-  
-  $key = in_array($table, array('node', 'users')) ? 'created' : 'timestamp';
-  $timestamp = $timestamp ? $timestamp : db_query('SELECT MIN(:key) FROM {:table} WHERE :id != 0', array(':key' => $key, ':table' => $table, ':id' => $id));
-  if ($timestamp) {
-    // one point per week (at least 15 points)
-    if (!$points) {
-      $points = max((time() - $timestamp) / (60*60*24*7), 15);
-      while ($points > $nbars) {
-        $points /= 2;
-      }
-    }
-    $interval = round((time() - $timestamp) / ($points - 1), 0);
-    $time = $timestamp;
-    for ($i = 0; $i < $points; $i++) {
-          $data['date'][$i] = format_date($time, 'custom', 'm/d') ;     
-      $data['count'][$i] = db_query('SELECT COUNT(DISTINCT(:id)) FROM {:table} WHERE :key <= :time AND :id2 != 0 :frag', array(':id' => $id, ':table' => $table, ':key' => $key, ':time' => $time, ':id2' => $id, ':frag' => $qfragment));
-      $time += $interval;
-    }
-  }
 
-  return $data;
-}
-*/
-
+/**
+ * Formats data as a small line chart.
+ *
+ * @param $id_title
+ *   Chart id title.
+ * @param array $data
+ *   Data to be used in the chart.
+ *
+ * @return string
+ *   Formatted HTML output.
+ */
 function path_analytics_small_line_chart($id_title, $data) {
   $chart = array(
     '#chart_id' => $id_title . '_small_30d',
@@ -874,6 +936,9 @@ function path_analytics_preprocess_page($vars) {
 
 /**
  * Provides standard list of countries used by Google Analytics.
+ *
+ * @return array
+ *   An array of countries as keys.
  */
 function _path_analytics_countries() {
   $countries = array (
